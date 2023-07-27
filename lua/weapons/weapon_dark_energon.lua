@@ -17,8 +17,8 @@ SWEP.WorldModel = Model( "models/megarexfoc/w_dark_injector.mdl" )
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
 
-SWEP.Primary.ClipSize = 10
-SWEP.Primary.DefaultClip = 1
+SWEP.Primary.ClipSize = -1
+SWEP.Primary.DefaultClip = -1
 SWEP.Primary.Automatic = false
 SWEP.Primary.Ammo = "none"
 
@@ -27,73 +27,52 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
-SWEP.HealAmount = 15 -- Maximum heal amount per use
-SWEP.MaxAmmo = 10 -- Maxumum ammo
-
-local HealSound = Sound( "cybertronian/energon_inject.wav" )
+local HealSound = Sound("cybertronian/energon_inject.wav")
 
 function SWEP:Initialize()
-
-	self:SetHoldType( "slam" )
+	self:SetHoldType("slam")
 	
-
-	if ( CLIENT ) then return end
+	if(CLIENT) then return end
 end
 
-function SWEP:PrimaryAttack()
-
-end
+function SWEP:PrimaryAttack() return false end -- This stops it from making the 'out of ammo' sound
 
 function SWEP:SecondaryAttack()
-self.Weapon:EmitSound(HealSound)
-	if ( CLIENT ) then return end
+	self:EmitSound(HealSound)
 
-		self:TakePrimaryAmmo( 1 )
+	if(CLIENT) then return end
+
+	timer.Simple(2, function()
+		local spawnent = ents.Create("npc_zombie")
+
+		spawnent:SetPos(self:GetOwner():GetPos())
+		spawnent:Spawn()
+
+		self:GetOwner():Kill()
+		self:GetOwner():GetRagdollEntity():Remove()
+
+	end)
 		
-		timer.Simple(2, function()
-	
-      	if (CLIENT) then return end
-			local rockett = ents.Create("npc_zombie")
-			local ply_Ang = self:GetOwner():GetAimVector():Angle()
-			local ply_Pos = self:GetOwner():GetShootPos() + ply_Ang:Forward()*24 + ply_Ang:Up()*-10 + ply_Ang:Right()*0
-			if self:GetOwner():IsPlayer() then rockett:SetPos(ply_Pos) else rockett:SetPos(self:GetNWVector()) end
-			if self:GetOwner():IsPlayer() then rockett:SetAngles(ply_Ang) else rockett:SetAngles(self:GetOwner():GetAngles()) end
-			rockett:SetOwner(self:GetOwner())
-			rockett:Activate()
-			rockett:Spawn()    
-    		local phys = rockett:GetPhysicsObject()
-    		if (phys:IsValid()) then
-    
-    end
+	self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 
-		self.Owner:Kill()
-		end)
-		 
+	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration() + 1)
+	self:GetOwner():SetAnimation(PLAYER_ATTACK1)
 
-		self:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
-
-		self:SetNextSecondaryFire( CurTime() + self:SequenceDuration() + 1 )
-		self.Owner:SetAnimation( PLAYER_ATTACK1 )
-
-		timer.Create( "weapon_idle" .. self:EntIndex(), self:SequenceDuration(), 1, function() if ( IsValid( self ) ) and  self:Clip1() >= 1  then self:SendWeaponAnim( ACT_VM_IDLE ) self.Owner:Kill() else self:Remove () end end )
-
-
-		self:SetNextSecondaryFire( CurTime() + 1 )
-
+	timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
+		if(IsValid(self)) then 
+			self:SendWeaponAnim(ACT_VM_IDLE)
+			self:GetOwner():Kill() 
+		end
+	end)
 end
 
 function SWEP:OnRemove()
-
 	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
 end
 
 function SWEP:Holster()
-
 	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
 	return true
-
 end
 
 
