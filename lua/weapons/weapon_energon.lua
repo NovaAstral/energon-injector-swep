@@ -42,11 +42,10 @@ function SWEP:Initialize()
 	if(CLIENT) then return end
 end
 
-function HealTarget(ent,owner)
+local function HealTarget(ent,owner)
 	local self = owner:GetWeapon("weapon_energon")
 
 	if(IsValid(ent) and ent:IsPlayer() or ent:IsNPC()) then
-		print("valid")
 		if(self:Ammo1() > 0 and ent:Health() < ent:GetMaxHealth()) then
 			timer.Create("EnergonHeal" .. self:EntIndex(),0.1,self.HealAmount,function()
 				if(IsValid(ent)) then
@@ -60,12 +59,13 @@ function HealTarget(ent,owner)
 
 			if(ent == owner) then
 				self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
+				self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
 			else
 				self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+				self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
 			end
 
 			self:TakePrimaryAmmo(1)
-			self:SetNextSecondaryFire(CurTime() + self:SequenceDuration() + 1)
 
 			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
 				if(IsValid(self)) then 
@@ -86,14 +86,10 @@ function SWEP:PrimaryAttack()
 	else
 		self:EmitSound(DenySound)
 	end
-
-	self:SetNextPrimaryFire(CurTime() + 1)
 end
 
 function SWEP:SecondaryAttack()
 	HealTarget(self:GetOwner(),self:GetOwner())
-
-	self:SetNextSecondaryFire(CurTime() + 1)
 end
 
 function SWEP:OnRemove()
@@ -107,10 +103,3 @@ function SWEP:Holster()
 
 	return true
 end
-
-
-		
-
-
-
-

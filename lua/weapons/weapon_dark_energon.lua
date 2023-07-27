@@ -1,13 +1,10 @@
-
-AddCSLuaFile()
-
 SWEP.PrintName = "Energon Dark"
-SWEP.Author = "Spok"
-SWEP.Purpose = "RMB - heal yourself, LMB - heal someone else."
+SWEP.Author = "Nova Astral"
+SWEP.Purpose = "RMB - Turn yourself into a zombie"
 
 SWEP.Slot = 5
 SWEP.SlotPos = 3
-SWEP.DrawAmmo = true	
+SWEP.DrawAmmo = false	
 SWEP.Category = "Disposable Transformers"
 
 SWEP.Spawnable = true
@@ -29,6 +26,10 @@ SWEP.Secondary.Ammo = "none"
 
 local HealSound = Sound("cybertronian/energon_inject.wav")
 
+if SERVER then
+	AddCSLuaFile()
+end
+
 function SWEP:Initialize()
 	self:SetHoldType("slam")
 	
@@ -46,22 +47,21 @@ function SWEP:SecondaryAttack()
 		local spawnent = ents.Create("npc_zombie")
 
 		spawnent:SetPos(self:GetOwner():GetPos())
+		spawnent:Activate()
 		spawnent:Spawn()
-
+		
 		self:GetOwner():Kill()
 		self:GetOwner():GetRagdollEntity():Remove()
-
 	end)
 		
 	self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 
-	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration() + 1)
+	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration())
 	self:GetOwner():SetAnimation(PLAYER_ATTACK1)
 
 	timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
 		if(IsValid(self)) then 
 			self:SendWeaponAnim(ACT_VM_IDLE)
-			self:GetOwner():Kill() 
 		end
 	end)
 end

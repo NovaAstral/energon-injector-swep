@@ -1,9 +1,6 @@
-
-AddCSLuaFile()
-
 SWEP.PrintName = "Energon Overcharge"
-SWEP.Author = "Spok"
-SWEP.Purpose = "RMB - use it for yourself, LMB - for someone else."
+SWEP.Author = "Nova Astral"
+SWEP.Purpose = "RMB - Recharge your suit armor"
 
 SWEP.Slot = 5
 SWEP.SlotPos = 3
@@ -12,78 +9,87 @@ SWEP.Category = "Disposable Transformers"
 
 SWEP.Spawnable = true
 
-SWEP.ViewModel = Model( "models/megarexfoc/viewmodels/c_overcharge_injector_stim.mdl" )
-SWEP.WorldModel = Model( "models/megarexfoc/w_overcharge_injector.mdl" )
+SWEP.ViewModel = Model("models/megarexfoc/viewmodels/c_overcharge_injector_stim.mdl")
+SWEP.WorldModel = Model("models/megarexfoc/w_overcharge_injector.mdl")
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
 
-SWEP.Primary.ClipSize = 10
-SWEP.Primary.DefaultClip = 1
+SWEP.Primary.ClipSize = -1
+SWEP.Primary.DefaultClip = 10
 SWEP.Primary.Automatic = false
-SWEP.Primary.Ammo = "none"
+SWEP.Primary.Ammo = "HelicopterGun"
 
 SWEP.Secondary.ClipSize = -1
 SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
-SWEP.HealAmount = 25 -- Maximum heal amount per use
+SWEP.HealAmount = 20 -- Maximum heal amount per use
 SWEP.MaxAmmo = 10 -- Maxumum ammo
+SWEP.HealDist = 45 -- Distance you can heal other players/npcs from
 
-local HealSound = Sound( "cybertronian/energon_inject.wav" )
-local DenySound = Sound( "SuitRecharge.Deny" )
+local HealSound = Sound("cybertronian/energon_inject.wav")
+local DenySound = Sound("SuitRecharge.Deny")
 
-function SWEP:Initialize()
-
-	self:SetHoldType( "slam" )
-
-	if ( CLIENT ) then return end
+if SERVER then
+	AddCSLuaFile()
 end
 
+function SWEP:Initialize()
+	self:SetHoldType("slam")
 
-function SWEP:SecondaryAttack()
+	if(CLIENT) then return end
+end
 
-	if ( CLIENT ) then return end
+local function HealTarget(ent,owner)
+	local self = owner:GetWeapon("weapon_overcharge")
 
-	local ent = self.Owner
+	if(IsValid(ent)) then
+		if(self:Ammo1() > 0 and ent:Armor() < ent:GetMaxArmor()) then
+			if(SERVER) then
+				timer.Create("EnergonCharge" .. self:EntIndex(),0.1,self.HealAmount,function()
+					if(IsValid(ent)) then
+						ent:SetArmor(math.Clamp(ent:Armor() + 1,0,ent:GetMaxArmor()))
+					else
+						timer.Stop("EnergonCharge" .. self:EntIndex())
+					end
+				end)
+			end
+			
+			self:EmitSound(HealSound)
 
-	local need = self.HealAmount
-	if ( IsValid( ent ) ) then need = math.min( 100 - ent:Armor(), self.HealAmount ) end
+			self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 
-	if ( IsValid( ent ) && self:Clip1() >= 1 && ent:Armor() < 100 ) then
+			self:TakePrimaryAmmo(1)
+			self:SetNextSecondaryFire(CurTime() + self:SequenceDuration())
 
-		self:TakePrimaryAmmo( 1 )
-
-		ent:SetArmor( math.min( 100, ent:Armor() + need ) )
-		ent:EmitSound( HealSound )
-
-		self:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
-
-		self:SetNextSecondaryFire( CurTime() + self:SequenceDuration() + 0.5 )
-		self.Owner:SetAnimation( PLAYER_ATTACK1 )
-
-		timer.Create( "weapon_idle" .. self:EntIndex(), self:SequenceDuration(), 1, function() if ( IsValid( self ) ) and  self:Clip1() >= 1  then self:SendWeaponAnim( ACT_VM_IDLE ) else self:Remove () end end )
-
-	else
-
-		ent:EmitSound( DenySound )
-		self:SetNextSecondaryFire( CurTime() + 1 )
-
+			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
+				if(IsValid(self)) then 
+					self:SendWeaponAnim(ACT_VM_IDLE)
+				end 
+			end)
+		else
+			self:EmitSound(DenySound)
+		end
 	end
 end
 
+function SWEP:PrimaryAttack() return false end -- This stops it from making the 'out of ammo' sound
+
+function SWEP:SecondaryAttack()
+	HealTarget(self:GetOwner(),self:GetOwner())
+end
+
 function SWEP:OnRemove()
-
-	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
+	timer.Stop("weapon_idle" .. self:EntIndex())
+	timer.Stop("EnergonCharge" .. self:EntIndex())
 end
 
 function SWEP:Holster()
-
-	timer.Stop( "weapon_idle" .. self:EntIndex() )
+	timer.Stop("weapon_idle" .. self:EntIndex())
+	timer.Stop("EnergonCharge" .. self:EntIndex())
 
 	return true
-
 end
 
 
