@@ -39,34 +39,40 @@ end
 function SWEP:PrimaryAttack() return false end
 
 function SWEP:SecondaryAttack()
-	if(SERVER) then
+	if(self:GetOwner():GetNWInt("EnergonSpeedActive") == 0) then
 		timer.Create("SpeedWait" .. self:EntIndex(),2,1,function()
 			self:GetOwner():SetNWInt("EnergonSpeed",self:GetOwner():GetRunSpeed())
+			self:GetOwner():SetNWInt("EnergonSpeedActive",1)
+
 			self:GetOwner():SetRunSpeed(self.SpeedInc)
 		end)
-	end
-	
-	self:EmitSound(HealSound)
 
-	self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
+		self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
+		self:GetOwner():SetAnimation(PLAYER_ATTACK1)
+
+		self:EmitSound(HealSound)
+
+		timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function() 
+			if(IsValid(self)) then 
+				self:SendWeaponAnim(ACT_VM_IDLE)
+			end
+		end)
+	end
+
 
 	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration() + 1)
-	self:GetOwner():SetAnimation(PLAYER_ATTACK1)
-
-	timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function() 
-		if(IsValid(self)) then 
-			self:SendWeaponAnim(ACT_VM_IDLE)
-		end
-	end)
 end
 
 function SWEP:OnRemove()
 	timer.Stop("weapon_idle" .. self:EntIndex())
 	timer.Stop("SpeedWait" .. self:EntIndex())
+
+	self:GetOwner():SetNWInt("EnergonSpeedActive",0)
 end
 
 function SWEP:Holster()
 	timer.Stop("weapon_idle" .. self:EntIndex())
 	timer.Stop("SpeedWait" .. self:EntIndex())
+
 	return true
 end
