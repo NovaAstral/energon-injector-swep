@@ -8,8 +8,8 @@ SWEP.Category = "Disposable Transformers"
 
 SWEP.Spawnable = true
 
-SWEP.ViewModel = Model( "models/megarexfoc/viewmodels/c_red_energon_injector_stim.mdl" )
-SWEP.WorldModel = Model( "models/megarexfoc/w_red_injector.mdl" )
+SWEP.ViewModel = Model("models/megarexfoc/viewmodels/c_red_energon_injector_stim.mdl")
+SWEP.WorldModel = Model("models/megarexfoc/w_red_injector.mdl")
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
 
@@ -41,6 +41,7 @@ function SWEP:PrimaryAttack() return false end
 function SWEP:SecondaryAttack()
 	if(SERVER) then
 		timer.Create("SpeedWait" .. self:EntIndex(),2,1,function()
+			self:GetOwner():SetNWInt("EnergonSpeed",self:GetOwner():GetRunSpeed())
 			self:GetOwner():SetRunSpeed(self.SpeedInc)
 		end)
 	end
