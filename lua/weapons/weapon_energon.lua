@@ -8,12 +8,12 @@ SWEP.Category = "Disposable Transformers"
 
 SWEP.Spawnable = true
 
-SWEP.DrawAmmo = true
-
 SWEP.ViewModel = Model("models/megarexfoc/viewmodels/c_energon_injector_stim.mdl")
 SWEP.WorldModel = Model("models/megarexfoc/w_energon_injector.mdl")
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
+
+SWEP.DrawAmmo = true
 
 SWEP.Primary.ClipSize = -1
 SWEP.Primary.DefaultClip = 10

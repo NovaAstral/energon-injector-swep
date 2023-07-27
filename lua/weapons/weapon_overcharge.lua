@@ -4,7 +4,6 @@ SWEP.Purpose = "RMB - Recharge your suit armor"
 
 SWEP.Slot = 5
 SWEP.SlotPos = 3
-SWEP.DrawAmmo = true
 SWEP.Category = "Disposable Transformers"	
 
 SWEP.Spawnable = true
@@ -13,6 +12,8 @@ SWEP.ViewModel = Model("models/megarexfoc/viewmodels/c_overcharge_injector_stim.
 SWEP.WorldModel = Model("models/megarexfoc/w_overcharge_injector.mdl")
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
+
+SWEP.DrawAmmo = true
 
 SWEP.Primary.ClipSize = -1
 SWEP.Primary.DefaultClip = 10

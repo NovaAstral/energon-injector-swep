@@ -1,13 +1,9 @@
-
-AddCSLuaFile()
-
-SWEP.PrintName = "Energon Red"
-SWEP.Author = "Spok"
-SWEP.Purpose = "RMB - heal yourself, LMB - heal someone else."
+SWEP.PrintName = "Energon Fast Red"
+SWEP.Author = "Nova Astral"
+SWEP.Purpose = "RMB - Increase your speed massively"
 
 SWEP.Slot = 5
 SWEP.SlotPos = 3
-SWEP.DrawAmmo = true	
 SWEP.Category = "Disposable Transformers"
 
 SWEP.Spawnable = true
@@ -17,8 +13,10 @@ SWEP.WorldModel = Model( "models/megarexfoc/w_red_injector.mdl" )
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
 
-SWEP.Primary.ClipSize = 10
-SWEP.Primary.DefaultClip = 1
+SWEP.DrawAmmo = true	
+
+SWEP.Primary.ClipSize = -1
+SWEP.Primary.DefaultClip = -1
 SWEP.Primary.Automatic = false
 SWEP.Primary.Ammo = "none"
 
@@ -27,61 +25,45 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
-SWEP.HealAmount = 15 -- Maximum heal amount per use
+SWEP.SpeedInc = 1000 -- How fast you will go
 SWEP.MaxAmmo = 10 -- Maxumum ammo
 
-local HealSound = Sound( "cybertronian/energon_inject.wav" )
+local HealSound = Sound("cybertronian/energon_inject.wav")
 
 function SWEP:Initialize()
+	self:SetHoldType("slam")
 
-	self:SetHoldType( "slam" )
-	
-
-	if ( CLIENT ) then return end
+	if(CLIENT) then return end
 end
 
-function SWEP:PrimaryAttack()
-
-end
+function SWEP:PrimaryAttack() return false end
 
 function SWEP:SecondaryAttack()
+	if(CLIENT) then return end
 
-	if ( CLIENT ) then return end
+	timer.Simple(2,function()
+		self:GetOwner():SetRunSpeed(self.SpeedInc)
+	end)
+	
+	self:EmitSound(HealSound)
 
-		self:TakePrimaryAmmo( 1 )
-		self.Owner:SetRunSpeed( 2000 )
+	self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 
-		 self.Weapon:EmitSound(HealSound)
+	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration() + 1)
+	self:GetOwner():SetAnimation(PLAYER_ATTACK1)
 
-		self:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
-
-		self:SetNextSecondaryFire( CurTime() + self:SequenceDuration() + 1 )
-		self.Owner:SetAnimation( PLAYER_ATTACK1 )
-
-		timer.Create( "weapon_idle" .. self:EntIndex(), self:SequenceDuration(), 1, function() if ( IsValid( self ) ) and  self:Clip1() >= 1  then self:SendWeaponAnim( ACT_VM_IDLE ) else self:Remove () end end )
-
-
-		self:SetNextSecondaryFire( CurTime() + 1 )
-
+	timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function() 
+		if(IsValid(self)) then 
+			self:SendWeaponAnim(ACT_VM_IDLE)
+		end
+	end)
 end
 
 function SWEP:OnRemove()
-
-	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
+	timer.Stop("weapon_idle" .. self:EntIndex())
 end
 
 function SWEP:Holster()
-
-	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
+	timer.Stop("weapon_idle" .. self:EntIndex())
 	return true
-
 end
-
-
-		
-
-
-
-
