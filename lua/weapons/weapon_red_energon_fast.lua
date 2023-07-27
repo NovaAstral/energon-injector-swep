@@ -39,12 +39,11 @@ end
 function SWEP:PrimaryAttack() return false end
 
 function SWEP:SecondaryAttack()
-	if(CLIENT) then return end
-	self:TakePrimaryAmmo(1)
-
-	timer.Simple(2,function()
-		self:GetOwner():SetRunSpeed(self.SpeedInc)
-	end)
+	if(SERVER) then
+		timer.Create("SpeedWait" .. self:EntIndex(),2,1,function()
+			self:GetOwner():SetRunSpeed(self.SpeedInc)
+		end)
+	end
 
 	self:EmitSound(HealSound)
 
@@ -62,9 +61,11 @@ end
 
 function SWEP:OnRemove()
 	timer.Stop("weapon_idle" .. self:EntIndex())
+	timer.Stop("SpeedWait" .. self:EntIndex())
 end
 
 function SWEP:Holster()
 	timer.Stop("weapon_idle" .. self:EntIndex())
+	timer.Stop("SpeedWait" .. self:EntIndex())
 	return true
 end
