@@ -1,13 +1,10 @@
-
-AddCSLuaFile()
-
 SWEP.PrintName = "Energon Speed Dark"
-SWEP.Author = "Spok"
-SWEP.Purpose = "RMB - heal yourself, LMB - heal someone else."
+SWEP.Author = "Nova Astral"
+SWEP.Purpose = "RMB - Turn yourself into a fast zombie"
 
 SWEP.Slot = 5
 SWEP.SlotPos = 3
-SWEP.DrawAmmo = true	
+SWEP.DrawAmmo = false	
 SWEP.Category = "Disposable Transformers"
 
 SWEP.Spawnable = true
@@ -17,8 +14,8 @@ SWEP.WorldModel = Model( "models/megarexfoc/w_dark_injector.mdl" )
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
 
-SWEP.Primary.ClipSize = 10
-SWEP.Primary.DefaultClip = 1
+SWEP.Primary.ClipSize = -1
+SWEP.Primary.DefaultClip = -1
 SWEP.Primary.Automatic = false
 SWEP.Primary.Ammo = "none"
 
@@ -27,78 +24,53 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
-SWEP.HealAmount = 15 -- Maximum heal amount per use
-SWEP.MaxAmmo = 10 -- Maxumum ammo
+local HealSound = Sound("cybertronian/energon_inject.wav")
 
-local HealSound = Sound( "cybertronian/energon_inject.wav" )
+if SERVER then
+	AddCSLuaFile()
+end
 
 function SWEP:Initialize()
-
-	self:SetHoldType( "slam" )
+	self:SetHoldType("slam")
 	
-
-	if ( CLIENT ) then return end
+	if(CLIENT) then return end
 end
 
-function SWEP:PrimaryAttack()
-
-end
+function SWEP:PrimaryAttack() return false end -- This stops it from making the 'out of ammo' sound
 
 function SWEP:SecondaryAttack()
-self.Weapon:EmitSound(HealSound)
-	if ( CLIENT ) then return end
+	self:EmitSound(HealSound)
 
-		self:TakePrimaryAmmo( 1 )
+	if(CLIENT) then return end
+
+	timer.Simple(2, function()
+		local spawnent = ents.Create("npc_fastzombie")
+		--Jank pos because spawning it ontop of the player makes it invisible to them
+		spawnent:SetPos(self:GetOwner():GetShootPos() + self:GetOwner():GetAimVector():Angle():Forward()*24)
+		spawnent:Activate()
+		spawnent:Spawn()
 		
-		timer.Simple(2, function()
-	
-      	if (CLIENT) then return end
-			local rockett = ents.Create("npc_fastzombie")
-			local ply_Ang = self:GetOwner():GetAimVector():Angle()
-			local ply_Pos = self:GetOwner():GetShootPos() + ply_Ang:Forward()*24 + ply_Ang:Up()*-10 + ply_Ang:Right()*0
-			if self:GetOwner():IsPlayer() then rockett:SetPos(ply_Pos) else rockett:SetPos(self:GetNWVector()) end
-			if self:GetOwner():IsPlayer() then rockett:SetAngles(ply_Ang) else rockett:SetAngles(self:GetOwner():GetAngles()) end
-			rockett:SetOwner(self:GetOwner())
-			rockett:Activate()
-			rockett:Spawn()    
-    		local phys = rockett:GetPhysicsObject()
-    		if (phys:IsValid()) then
-    
-    end
+		self:GetOwner():Kill()
+		self:GetOwner():GetRagdollEntity():Remove()
+	end)
+		
+	self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 
-		self.Owner:Kill()
-		end)
-		 
+	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration())
+	self:GetOwner():SetAnimation(PLAYER_ATTACK1)
 
-		self:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
-
-		self:SetNextSecondaryFire( CurTime() + self:SequenceDuration() + 1 )
-		self.Owner:SetAnimation( PLAYER_ATTACK1 )
-
-		timer.Create( "weapon_idle" .. self:EntIndex(), self:SequenceDuration(), 1, function() if ( IsValid( self ) ) and  self:Clip1() >= 1  then self:SendWeaponAnim( ACT_VM_IDLE ) self.Owner:Kill() else self:Remove () end end )
-
-
-		self:SetNextSecondaryFire( CurTime() + 1 )
-
+	timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
+		if(IsValid(self)) then 
+			self:SendWeaponAnim(ACT_VM_IDLE)
+		end
+	end)
 end
 
 function SWEP:OnRemove()
-
 	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
 end
 
 function SWEP:Holster()
-
 	timer.Stop( "weapon_idle" .. self:EntIndex() )
-
 	return true
-
 end
-
-
-		
-
-
-
-

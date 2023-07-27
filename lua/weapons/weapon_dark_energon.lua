@@ -45,8 +45,8 @@ function SWEP:SecondaryAttack()
 
 	timer.Simple(2, function()
 		local spawnent = ents.Create("npc_zombie")
-
-		spawnent:SetPos(self:GetOwner():GetPos())
+		--Jank pos because spawning it ontop of the player makes it invisible to them
+		spawnent:SetPos(self:GetOwner():GetShootPos() + self:GetOwner():GetAimVector():Angle():Forward()*24)
 		spawnent:Activate()
 		spawnent:Spawn()
 		
@@ -74,10 +74,3 @@ function SWEP:Holster()
 	timer.Stop( "weapon_idle" .. self:EntIndex() )
 	return true
 end
-
-
-		
-
-
-
-
