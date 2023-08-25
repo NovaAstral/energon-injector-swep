@@ -96,9 +96,9 @@ end
 function SWEP:PrimaryAttack()
 	local tr = self:GetOwner():GetEyeTraceNoCursor()
 
-	if(!tr.Entity:IsPlayer()) then return end
+	
 
-	if(self:GetOwner():GetShootPos():Distance(tr.HitPos) <= self.InjDist and IsValid(tr.Entity)) then
+	if(self:GetOwner():GetShootPos():Distance(tr.HitPos) <= self.InjDist and IsValid(tr.Entity) and tr.Entity:IsPlayer()) then
 		self:InjectTarget(tr.Entity)
 	else
 		self:EmitSound(DenySound)
