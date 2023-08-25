@@ -1,10 +1,11 @@
-SWEP.PrintName = "Energon Fast Red"
+SWEP.PrintName = "Energon Red Fast Injector"
 SWEP.Author = "Nova Astral"
-SWEP.Purpose = "RMB - Increase your speed massively"
+SWEP.Purpose = "Replace Energon with Red Energon and become very fast"
+SWEP.Instructions = "LMB - Increase the target players speed \nRMB - Increase your speed"
 
-SWEP.Slot = 5
+SWEP.Slot = 4
 SWEP.SlotPos = 3
-SWEP.Category = "Disposable Transformers"
+SWEP.Category = "Transformers Injectors"
 
 SWEP.Spawnable = true
 
@@ -26,29 +27,50 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
 SWEP.SpeedInc = 2000 -- How fast you will go
-SWEP.MaxAmmo = 10 -- Maxumum ammo
+SWEP.MaxUses = 10 -- Maxumum ammo
+SWEP.UsesLeft = SWEP.MaxUses -- Uses Left
+SWEP.InjDist = 45 -- Distance you can inject other players/npcs from
 
 local HealSound = Sound("cybertronian/energon_inject.wav")
+local DenySound = Sound("WallHealth.Deny")
 
 function SWEP:Initialize()
 	self:SetHoldType("slam")
 
+	self:SetNWInt("Uses",self.UsesLeft)
+
 	if(CLIENT) then return end
 end
 
-function SWEP:PrimaryAttack() return false end
+function SWEP:TakeAmmo()
+	self.UsesLeft = self.UsesLeft - 1
+	self:SetNWInt("Uses",self.UsesLeft)
+end
 
-function SWEP:SecondaryAttack()
-	if(self:GetOwner():GetNWInt("EnergonSpeedActive") == 0) then
+function SWEP:InjectTarget(ent)
+	if(ent:GetNWInt("EnergonSpeedActive") == 0) then
 		timer.Create("SpeedWait" .. self:EntIndex(),2,1,function()
-			self:GetOwner():SetNWInt("EnergonSpeed",self:GetOwner():GetRunSpeed())
-			self:GetOwner():SetNWInt("EnergonSpeedActive",1)
+			ent:SetNWInt("EnergonSpeed",ent:GetRunSpeed())
+			ent:SetNWInt("EnergonSpeedActive",1)
 
-			self:GetOwner():SetRunSpeed(self.SpeedInc)
+			ent:SetRunSpeed(self.SpeedInc)
 		end)
 
-		self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
-		self:GetOwner():SetAnimation(PLAYER_ATTACK1)
+		if(ent == self:GetOwner()) then
+			self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
+			self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
+
+			timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
+				self:TakeAmmo()
+			end)
+		else
+			self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+			self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
+
+			timer.Simple(self:SequenceDuration(),function() 
+				self:TakeAmmo()
+			end)
+		end
 
 		self:EmitSound(HealSound)
 
@@ -57,10 +79,26 @@ function SWEP:SecondaryAttack()
 				self:SendWeaponAnim(ACT_VM_IDLE)
 			end
 		end)
+	else
+		self:EmitSound(DenySound)
 	end
+end
 
+function SWEP:PrimaryAttack()
+	local tr = self:GetOwner():GetEyeTraceNoCursor()
+	ply = tr.Entity
 
-	self:SetNextSecondaryFire(CurTime() + self:SequenceDuration() + 1)
+	if(!ply:IsPlayer()) then return end
+
+	if(self:GetOwner():GetShootPos():Distance(tr.HitPos) <= self.InjDist and IsValid(ply)) then
+		self:InjectTarget(ply)
+	else
+		self:EmitSound(DenySound)
+	end
+end
+
+function SWEP:SecondaryAttack()
+	self:InjectTarget(self:GetOwner())
 end
 
 function SWEP:OnRemove()
@@ -75,4 +113,10 @@ function SWEP:Holster()
 	timer.Stop("SpeedWait" .. self:EntIndex())
 
 	return true
+end
+
+if CLIENT then
+	function SWEP:DrawHUD() -- Display uses
+		draw.WordBox(10, ScrW() - 200, ScrH() - 140, "Uses Left: " .. self:GetNWInt("Uses"), "Default", Color(0, 0, 0, 80), Color(255, 220, 0, 220))
+	end
 end

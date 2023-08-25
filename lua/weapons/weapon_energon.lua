@@ -1,10 +1,11 @@
-SWEP.PrintName = "Energon"
+SWEP.PrintName = "Energon Injector"
 SWEP.Author = "Nova Astral"
-SWEP.Purpose = "LMB - Heal Target NPC or Player, RMB - Heal Yourself"
+SWEP.Purpose = "Replenish a Cybertronian's Energon Reserves"
+SWEP.Instructions = "LMB - Heal Target NPC or Player \nRMB - Heal Yourself"
 
-SWEP.Slot = 5
+SWEP.Slot = 4
 SWEP.SlotPos = 3
-SWEP.Category = "Disposable Transformers"
+SWEP.Category = "Transformers Injectors"
 
 SWEP.Spawnable = true
 
@@ -13,12 +14,12 @@ SWEP.WorldModel = Model("models/megarexfoc/w_energon_injector.mdl")
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
 
-SWEP.DrawAmmo = true
+SWEP.DrawAmmo = false
 
 SWEP.Primary.ClipSize = -1
-SWEP.Primary.DefaultClip = 10
+SWEP.Primary.DefaultClip = -1
 SWEP.Primary.Automatic = false
-SWEP.Primary.Ammo = "HelicopterGun"
+SWEP.Primary.Ammo = "none"
 
 SWEP.Secondary.ClipSize = -1
 SWEP.Secondary.DefaultClip = -1
@@ -26,11 +27,12 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
 SWEP.HealAmount = 20 -- Maximum heal amount per use
-SWEP.MaxAmmo = 10 -- Maxumum ammo
-SWEP.HealDist = 45 -- Distance you can heal other players/npcs from
+SWEP.MaxUses = 10 -- Maxumum ammo
+SWEP.UsesLeft = SWEP.MaxUses -- Uses Left
+SWEP.InjDist = 45 -- Distance you can inject other players/npcs from
 
-local HealSound = Sound( "cybertronian/energon_inject.wav" )
-local DenySound = Sound( "WallHealth.Deny" )
+local HealSound = Sound("cybertronian/energon_inject.wav")
+local DenySound = Sound("WallHealth.Deny")
 
 if SERVER then
 	AddCSLuaFile()
@@ -39,33 +41,53 @@ end
 function SWEP:Initialize()
 	self:SetHoldType("slam")
 
+	self:SetNWInt("Uses",self.UsesLeft)
+
 	if(CLIENT) then return end
 end
 
-local function HealTarget(ent,owner)
-	local self = owner:GetWeapon("weapon_energon")
+function SWEP:TakeAmmo()
+	self.UsesLeft = self.UsesLeft - 1
+	self:SetNWInt("Uses",self.UsesLeft)
+end
 
+function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer() or ent:IsNPC()) then
-		if(self:Ammo1() > 0 and ent:Health() < ent:GetMaxHealth()) then
-			timer.Create("EnergonHeal" .. self:EntIndex(),0.1,self.HealAmount,function()
-				if(IsValid(ent)) then
-					ent:SetHealth(math.Clamp(ent:Health() + 1,0,ent:GetMaxHealth()))
-				else
-					timer.Stop("EnergonHeal" .. self:EntIndex())
-				end
-			end)
+		if(self.UsesLeft > 0 and ent:Health() < ent:GetMaxHealth() or ent:GetNWInt("EnergonSpeedActive") == 1) then
+			if(ent:Health() < ent:GetMaxHealth()) then
+				timer.Create("EnergonHeal" .. self:EntIndex(),0.1,self.HealAmount,function()
+					if(IsValid(ent)) then
+						ent:SetHealth(math.Clamp(ent:Health() + 1,0,ent:GetMaxHealth()))
+					else
+						timer.Stop("EnergonHeal" .. self:EntIndex())
+					end
+				end)
+			end
+
+			if(ent:GetNWInt("EnergonSpeedActive") == 1) then
+				timer.Create("SpeedWait" .. self:EntIndex(),2,1,function()
+					ent:SetRunSpeed(ent:GetNWInt("EnergonSpeed"))
+					ent:SetNWInt("EnergonSpeedActive",0)
+				end)
+			end
 			
 			self:EmitSound(HealSound)
 
-			if(ent == owner) then
+			if(ent == self:GetOwner()) then
 				self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 				self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
+	
+				timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
+					self:TakeAmmo()
+				end)
 			else
 				self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
 				self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
+	
+				timer.Simple(self:SequenceDuration(),function() 
+					self:TakeAmmo()
+				end)
 			end
-
-			self:TakePrimaryAmmo(1)
 
 			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
 				if(IsValid(self)) then 
@@ -81,15 +103,15 @@ end
 function SWEP:PrimaryAttack()
 	local tr = self:GetOwner():GetEyeTraceNoCursor()
 
-	if(self:GetOwner():GetShootPos():Distance(tr.HitPos) <= self.HealDist and IsValid(tr.Entity)) then
-		HealTarget(tr.Entity,self:GetOwner())
+	if(self:GetOwner():GetShootPos():Distance(tr.HitPos) <= self.InjDist and IsValid(tr.Entity)) then
+		self:InjectTarget(tr.Entity)
 	else
 		self:EmitSound(DenySound)
 	end
 end
 
 function SWEP:SecondaryAttack()
-	HealTarget(self:GetOwner(),self:GetOwner())
+	self:InjectTarget(self:GetOwner())
 end
 
 function SWEP:OnRemove()
@@ -102,4 +124,10 @@ function SWEP:Holster()
 	timer.Stop("EnergonHeal" .. self:EntIndex())
 
 	return true
+end
+
+if CLIENT then
+	function SWEP:DrawHUD() -- Display uses
+		draw.WordBox(10, ScrW() - 200, ScrH() - 140, "Uses Left: " .. self:GetNWInt("Uses"), "Default", Color(0, 0, 0, 80), Color(255, 220, 0, 220))
+	end
 end
