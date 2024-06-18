@@ -23,10 +23,10 @@ function SWEP:PreDrawViewModel() return true end -- This stops it from displayin
 
 function SWEP:Initialize()
     timer.Create("DarkInjector_Death_Check"..self:EntIndex(),0.1,0,function()
-        local tar = self:GetOwner():GetObserverTarget()
+        self.obstar = self:GetOwner():GetObserverTarget()
         self:GetOwner():DrawViewModel(false)
 
-        if(!IsValid(tar)) then
+        if(!IsValid(self.obstar)) then
             if(self:GetOwner():GetObserverMode() != OBS_MODE_NONE) then
                 self:GetOwner():UnSpectate()
                 self:GetOwner():Kill()
@@ -38,4 +38,11 @@ end
 
 function SWEP:OnRemove()
 	timer.Stop("DarkInjector_Death_Check"..self:EntIndex())
+end
+
+function SWEP:CalcView(ply,pos,ang,fov)
+	if(IsValid(self.obstar)) then
+		local newpos = pos + Vector(0,0,30)
+		return newpos,ang,fov
+	end
 end

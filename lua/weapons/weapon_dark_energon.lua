@@ -48,10 +48,11 @@ function SWEP:TakeAmmo()
 	self:SetNWInt("Uses",self.UsesLeft)
 end
 
+if SERVER then
 function SWEP:CreateZombie(ent)
 	if(IsValid(ent)) then
 		local spawnent = ents.Create("npc_zombie")
-		--Jank pos because spawning it ontop of the player makes it invisible to them
+		--Jank pos because spawning it directly ontop of the player makes it invisible to them
 		spawnent:SetPos(ent:GetShootPos() + ent:GetAimVector():Angle():Forward()*24)
 		spawnent:Activate()
 		spawnent:Spawn()
@@ -66,6 +67,7 @@ function SWEP:CreateZombie(ent)
 		end
 	end
 end
+end
 
 function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer() or ent:IsNPC()) then
@@ -74,19 +76,23 @@ function SWEP:InjectTarget(ent)
 		if(ent == self:GetOwner()) then
 			self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 			self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
-		
-			timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
-				self:TakeAmmo()
-				self:CreateZombie(ent)
-			end)
+
+			if SERVER then
+				timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
+					self:TakeAmmo()
+					self:CreateZombie(ent)
+				end)
+			end
 		else
 			self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
 			self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
-		
-			timer.Simple(self:SequenceDuration()+0.1,function() 
-				self:TakeAmmo()
-				self:CreateZombie(ent)
-			end)
+
+			if SERVER then
+				timer.Simple(self:SequenceDuration()+0.1,function() 
+					self:TakeAmmo()
+					self:CreateZombie(ent)
+				end)
+			end
 
 			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
 				if(IsValid(self)) then 

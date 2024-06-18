@@ -51,6 +51,8 @@ function SWEP:TakeAmmo()
 	self:SetNWInt("Uses",self.UsesLeft)
 end
 
+if SERVER then
+
 function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer()) then
 		if(self.UsesLeft > 0 and ent:Armor() < ent:GetMaxArmor()) then
@@ -93,10 +95,10 @@ function SWEP:InjectTarget(ent)
 	end
 end
 
+end
+
 function SWEP:PrimaryAttack()
 	local tr = self:GetOwner():GetEyeTraceNoCursor()
-
-	
 
 	if(self:GetOwner():GetShootPos():Distance(tr.HitPos) <= self.InjDist and IsValid(tr.Entity) and tr.Entity:IsPlayer()) then
 		self:InjectTarget(tr.Entity)

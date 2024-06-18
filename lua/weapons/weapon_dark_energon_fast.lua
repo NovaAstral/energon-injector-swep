@@ -13,6 +13,7 @@ SWEP.ViewModel = Model( "models/megarexfoc/viewmodels/c_dark_energon_injector_st
 SWEP.WorldModel = Model( "models/megarexfoc/w_dark_injector.mdl" )
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
+--use CalcViewModelView function to change viewmodel skin
 
 SWEP.Primary.ClipSize = -1
 SWEP.Primary.DefaultClip = -1
@@ -48,24 +49,26 @@ function SWEP:TakeAmmo()
 	self:SetNWInt("Uses",self.UsesLeft)
 end
 
+if SERVER then
 function SWEP:CreateZombie(ent)
 	if(IsValid(ent)) then
-		local spawnent = ents.Create("npc_fastzombie")
-		--Jank pos because spawning it ontop of the player makes it invisible to them
-		spawnent:SetPos(ent:GetShootPos() + ent:GetAimVector():Angle():Forward()*24)
-		spawnent:Activate()
-		spawnent:Spawn()
+		self.spawnent = ents.Create("npc_fastzombie")
+		--Jank pos because spawning it directly ontop of the player makes it invisible to them
+		self.spawnent:SetPos(ent:GetShootPos() + ent:GetAimVector():Angle():Forward()*24)
+		self.spawnent:Activate()
+		self.spawnent:Spawn()
 
 		if(ent:IsPlayer()) then
 			local hands = ent:Give("weapon_injector_hands")
 			ent:SetActiveWeapon(hands)
 			ent:Spectate(OBS_MODE_CHASE)
-			ent:SpectateEntity(spawnent)
+			ent:SpectateEntity(self.spawnent)
 		else
 			ent:Remove()
 		end
 	end
 end
+end --end server
 
 function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer() or ent:IsNPC()) then
@@ -74,19 +77,23 @@ function SWEP:InjectTarget(ent)
 		if(ent == self:GetOwner()) then
 			self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
 			self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
-		
-			timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
-				self:TakeAmmo()
-				self:CreateZombie(ent)
-			end)
+			
+			if SERVER then
+				timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
+					self:TakeAmmo()
+					self:CreateZombie(ent)
+				end)
+			end
 		else
 			self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
 			self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
-		
-			timer.Simple(self:SequenceDuration()+0.1,function() 
-				self:TakeAmmo()
-				self:CreateZombie(ent)
-			end)
+
+			if SERVER then
+				timer.Simple(self:SequenceDuration()+0.1,function() 
+					self:TakeAmmo()
+					self:CreateZombie(ent)
+				end)
+			end
 
 			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
 				if(IsValid(self)) then 
