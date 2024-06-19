@@ -51,15 +51,13 @@ function SWEP:TakeAmmo()
 	self:SetNWInt("Uses",self.UsesLeft)
 end
 
-if SERVER then
-
 function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer()) then
 		if(self.UsesLeft > 0 and ent:Armor() < ent:GetMaxArmor()) then
 			if(ent:Armor() < ent:GetMaxArmor()) then
 				timer.Create("EnergonArmor" .. self:EntIndex(),0.1,self.HealAmount,function()
 					if(IsValid(ent)) then
-						ent:SetArmor(math.Clamp(ent:Armor() + 1,0,ent:GetMaxArmor()))
+						if SERVER then ent:SetArmor(math.Clamp(ent:Armor() + 1,0,ent:GetMaxArmor())) end
 					else
 						timer.Stop("EnergonArmor" .. self:EntIndex())
 					end
@@ -93,8 +91,6 @@ function SWEP:InjectTarget(ent)
 			self:EmitSound(DenySound)
 		end
 	end
-end
-
 end
 
 function SWEP:PrimaryAttack()
