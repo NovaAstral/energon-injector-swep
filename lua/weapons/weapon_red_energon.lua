@@ -70,14 +70,18 @@ function SWEP:InjectTarget(ent)
 			self:SetNextSecondaryFire(CurTime() + 0.1 + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
 
 			timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
-				self:TakeAmmo()
+				if(IsValid(self)) then
+					self:TakeAmmo()
+				end
 			end)
 		else
 			self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
 			self:SetNextPrimaryFire(CurTime() + 0.1 + self:SequenceDuration())
 
 			timer.Simple(self:SequenceDuration(),function() 
-				self:TakeAmmo()
+				if(IsValid(self)) then
+					self:TakeAmmo()
+				end
 			end)
 		end
 
