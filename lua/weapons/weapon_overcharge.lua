@@ -62,7 +62,7 @@ end
 
 function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer()) then
-		if(self.Charge > 0 and ent:Armor() < ent:GetMaxArmor()) then
+		if(self.Charge >= 100 and ent:Armor() < ent:GetMaxArmor()) then
 			if(ent:Armor() < ent:GetMaxArmor()) then
 				timer.Create("EnergonArmor" .. self:EntIndex(),0.1,self.HealAmount,function()
 					if(IsValid(ent)) then
