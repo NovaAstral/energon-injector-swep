@@ -22,22 +22,54 @@ function SWEP:ShouldDropOnDie() return false end
 function SWEP:PreDrawViewModel() return true end -- This stops it from displaying as a pistol in your hands
 
 function SWEP:Initialize()
-    timer.Create("DarkInjector_Death_Check"..self:EntIndex(),0.1,0,function()
-        self.obstar = self:GetOwner():GetObserverTarget()
-        self:GetOwner():DrawViewModel(false)
+    timer.Simple(0.1,function()
+        self.OwnPly = self:GetOwner()
+        print(self.OwnPly)
+    end)
 
-        if(!IsValid(self.obstar)) then
-            if(self:GetOwner():GetObserverMode() != OBS_MODE_NONE) then
-                self:GetOwner():UnSpectate()
-                self:GetOwner():Kill()
-                self:GetOwner():GetRagdollEntity():Remove()
+    timer.Create("DarkInjector_Death_Check"..self:EntIndex(),0.1,0,function()
+        if(IsValid(self) and IsValid(self:GetOwner())) then
+            self.obstar = self:GetOwner():GetObserverTarget()
+            self:GetOwner():DrawViewModel(false)
+
+            if(SERVER and !IsValid(self.obstar)) then
+                if(self:GetOwner():GetObserverMode() != OBS_MODE_NONE) then
+                    self:GetOwner():UnSpectate()
+                    self:GetOwner():Kill()
+                    self:GetOwner():GetRagdollEntity():Remove()
+                end
             end
         end
     end)
 end
 
+function SWEP:Ded()
+    timer.Remove("DarkInjector_Death_Check"..self:EntIndex())
+
+    if(SERVER and IsValid(self.obstar)) then
+        if(IsValid(self.OwnPly)) then
+            self.OwnPly:UnSpectate()
+            self.OwnPly:Kill()
+            self.OwnPly:GetRagdollEntity():Remove()
+        end
+        
+        self.obstar:TakeDamage(200) -- yeet the zombi because player died and player is supposed to tbe the zombi
+
+        timer.Simple(0.1,function() -- if for whatever reason the zombie didnt die, delete it
+            if(IsValid(self.obstar)) then
+                self.obstar:Remove()
+                self.OwnPly:GetRagdollEntity():Remove()
+            end
+        end)
+    end
+end
+
 function SWEP:OnRemove()
-	timer.Stop("DarkInjector_Death_Check"..self:EntIndex())
+	self:Ded()
+end
+
+function SWEP:OnDrop()
+    self:Ded()
 end
 
 function SWEP:CalcView(ply,pos,ang,fov)

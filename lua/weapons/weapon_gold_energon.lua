@@ -1,6 +1,6 @@
 SWEP.PrintName = "Gold Energon Injector"
 SWEP.Author = "Nova Astral"
-SWEP.Purpose = "Make a cybertronain invulnerable"
+SWEP.Purpose = "Make a Cybertronian Invulnerable"
 SWEP.Instructions = "LMB - Goldenize Target Player \nRMB - Goldenize Yourself"
 
 SWEP.Slot = 4
@@ -27,8 +27,7 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
 SWEP.HealAmount = 20 -- Maximum heal amount per use
-SWEP.MaxUses = 10 -- Maxumum ammo
-SWEP.UsesLeft = SWEP.MaxUses -- Uses Left
+SWEP.Charge = 100
 SWEP.InjDist = 45 -- Distance you can inject other players/npcs from
 
 local HealSound = Sound("cybertronian/energon_inject.wav")
@@ -41,14 +40,24 @@ end
 function SWEP:Initialize()
 	self:SetHoldType("slam")
 
-	self:SetNWInt("Uses",self.UsesLeft)
+	self:SetNWInt("InjectorCharge",self.Charge)
 
 	if(CLIENT) then return end
 end
 
 function SWEP:TakeAmmo()
-	self.UsesLeft = self.UsesLeft - 1
-	self:SetNWInt("Uses",self.UsesLeft)
+	self.Charge = self.Charge - 100 -- incase you want to be able to 'overcharge' the injector
+	self:SetNWInt("InjectorCharge",self.Charge)
+
+	timer.Create("InjectorRecharge"..self:EntIndex(),0.01,0,function()
+		if(self.Charge < 100) then
+			self.Charge = self.Charge+0.3
+			self:SetNWInt("InjectorCharge",self.Charge)
+		else
+			self:SetNWInt("InjectorCharge",self.Charge)
+			timer.Remove("InjectorRecharge"..self:EntIndex())
+		end
+	end)
 end
 
 function SWEP:DisableGold(ent,oldmat)
@@ -62,46 +71,44 @@ function SWEP:DisableGold(ent,oldmat)
 end
 
 function SWEP:InjectTarget(ent)
-	if(IsValid(ent) and ent:IsPlayer()) then
-		if(self.UsesLeft > 0) then
-			timer.Create("EnergonGold" .. self:EntIndex(),self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),1,function()
-				if(IsValid(ent)) then
-					ent:GodEnable()
-                    OldMat = ent:GetMaterial()
-                    ent:SetMaterial("models/player/shared/gold_player")
+	if(IsValid(ent) and ent:IsPlayer() and self.Charge >= 100) then
+		timer.Create("EnergonGold" .. self:EntIndex(),self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),1,function()
+			if(SERVER and IsValid(ent)) then
+				ent:GodEnable()
+				OldMat = ent:GetMaterial()
+				ent:SetMaterial("models/player/shared/gold_player")
 
-                    timer.Create("GoldDisable"..self:EntIndex(),10,1,function()
-                        self:DisableGold(ent,OldMat)
-                    end)
-				end
-			end)
-			
-			self:EmitSound(HealSound)
-
-			if(ent == self:GetOwner()) then
-				self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
-				self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
-	
-				timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
-					self:TakeAmmo()
-				end)
-			else
-				self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-				self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
-	
-				timer.Simple(self:SequenceDuration(),function() 
-					self:TakeAmmo()
+				timer.Create("GoldDisable"..self:EntIndex(),10,1,function()
+					self:DisableGold(ent,OldMat)
 				end)
 			end
+		end)
+		
+		self:EmitSound(HealSound)
 
-			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
-				if(IsValid(self)) then 
-					self:SendWeaponAnim(ACT_VM_IDLE)
-				end 
+		if(ent == self:GetOwner()) then
+			self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
+			self:SetNextSecondaryFire(CurTime() + 0.1 + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
+
+			timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
+				self:TakeAmmo()
 			end)
 		else
-			self:EmitSound(DenySound)
+			self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+			self:SetNextPrimaryFire(CurTime() + 0.1 + self:SequenceDuration())
+
+			timer.Simple(self:SequenceDuration(),function() 
+				self:TakeAmmo()
+			end)
 		end
+
+		timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
+			if(IsValid(self)) then 
+				self:SendWeaponAnim(ACT_VM_IDLE)
+			end 
+		end)
+	else
+		self:EmitSound(DenySound)
 	end
 end
 
@@ -120,21 +127,23 @@ function SWEP:SecondaryAttack()
 end
 
 function SWEP:OnRemove()
-	timer.Stop("weapon_idle" .. self:EntIndex())
-	timer.Stop("EnergonGold" .. self:EntIndex())
-	timer.Stop("GoldDisable" .. self:EntIndex())
+	timer.Remove("weapon_idle" .. self:EntIndex())
+	timer.Remove("EnergonGold" .. self:EntIndex())
+	timer.Remove("GoldDisable" .. self:EntIndex())
+	timer.Remove("InjectorRecharge"..self:EntIndex())
 	self:DisableGold(self:GetOwner(),"")
 end
 
 function SWEP:Holster()
-	timer.Stop("weapon_idle" .. self:EntIndex())
-	timer.Stop("EnergonGold" .. self:EntIndex())
+	timer.Remove("weapon_idle" .. self:EntIndex())
+	timer.Remove("EnergonGold" .. self:EntIndex())
 
 	return true
 end
 
 if CLIENT then
-	function SWEP:DrawHUD() -- Display uses
-		draw.WordBox(10, ScrW() - 200, ScrH() - 140, "Uses Left: " .. self:GetNWInt("Uses"), "Default", Color(0, 0, 0, 80), Color(255, 220, 0, 220))
+	function SWEP:DrawHUD() -- Display Charge
+		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, 200, 40, Color(255,220,0,100))
+		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, math.Clamp(self:GetNWInt("InjectorCharge")*2,0,200), 40, Color(255,220,0,200))
 	end
 end

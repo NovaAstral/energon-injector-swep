@@ -4,7 +4,7 @@ SWEP.Purpose = "Create Fast Terrorcons"
 SWEP.Instructions = "LMB - Turn Target NPC or Player into a Fast Terrorcon \nRMB - Turn yourself into a Fast Terrorcon"
 SWEP.Slot = 4
 SWEP.SlotPos = 3
-SWEP.DrawAmmo = false	
+SWEP.DrawAmmo = false
 SWEP.Category = "Transformers Injectors"
 
 SWEP.Spawnable = true
@@ -13,7 +13,6 @@ SWEP.ViewModel = Model( "models/megarexfoc/viewmodels/c_dark_energon_injector_st
 SWEP.WorldModel = Model( "models/megarexfoc/w_dark_injector.mdl" )
 SWEP.ViewModelFOV = 75
 SWEP.UseHands = true
---use CalcViewModelView function to change viewmodel skin
 
 SWEP.Primary.ClipSize = -1
 SWEP.Primary.DefaultClip = -1
@@ -25,8 +24,7 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
-SWEP.MaxUses = 10 -- Maxumum ammo
-SWEP.UsesLeft = SWEP.MaxUses -- Uses Left
+SWEP.Charge = 100
 SWEP.InjDist = 45 -- Distance you can inject other players/npcs from
 
 local HealSound = Sound("cybertronian/energon_inject.wav")
@@ -39,67 +37,88 @@ end
 function SWEP:Initialize()
 	self:SetHoldType("slam")
 
-	self:SetNWInt("Uses",self.UsesLeft)
+	self:SetNWInt("InjectorCharge",self.Charge)
 	
 	if(CLIENT) then return end
 end
 
 function SWEP:TakeAmmo()
-	self.UsesLeft = self.UsesLeft - 1
-	self:SetNWInt("Uses",self.UsesLeft)
+	self.Charge = self.Charge - 100 -- incase you want to be able to 'overcharge' the injector
+	self:SetNWInt("InjectorCharge",self.Charge)
+
+	timer.Create("InjectorRecharge"..self:EntIndex(),0.01,0,function()
+		if(self.Charge < 100) then
+			self.Charge = self.Charge+0.3
+			self:SetNWInt("InjectorCharge",self.Charge)
+		else
+			self:SetNWInt("InjectorCharge",self.Charge)
+			timer.Remove("InjectorRecharge"..self:EntIndex())
+		end
+	end)
 end
 
 if SERVER then
-function SWEP:CreateZombie(ent)
-	if(IsValid(ent)) then
-		self.spawnent = ents.Create("npc_fastzombie")
-		--Jank pos because spawning it directly ontop of the player makes it invisible to them
-		self.spawnent:SetPos(ent:GetShootPos() + ent:GetAimVector():Angle():Forward()*24)
-		self.spawnent:Activate()
-		self.spawnent:Spawn()
+	function SWEP:CreateZombie(ent)
+		if(SERVER and IsValid(ent)) then
+			local spawnent = ents.Create("npc_fastzombie")
+			--Jank pos because spawning it directly ontop of the player makes it invisible to them
+			spawnent:SetPos(ent:GetShootPos() + ent:GetAimVector():Angle():Forward()*24)
+			spawnent:Activate()
+			spawnent:Spawn()
 
-		if(ent:IsPlayer()) then
-			local hands = ent:Give("weapon_injector_hands")
-			ent:SetActiveWeapon(hands)
-			ent:Spectate(OBS_MODE_CHASE)
-			ent:SpectateEntity(self.spawnent)
-		else
-			ent:Remove()
+			if(ent:IsPlayer()) then
+				local hands = ent:Give("weapon_injector_hands")
+				ent:SetActiveWeapon(hands)
+				ent:Spectate(OBS_MODE_CHASE)
+				ent:SpectateEntity(spawnent)
+			else
+				ent:Remove()
+			end
 		end
 	end
 end
-end --end server
 
 function SWEP:InjectTarget(ent)
 	if(IsValid(ent) and ent:IsPlayer() or ent:IsNPC()) then
-		self:EmitSound(HealSound)
+		if(self.Charge >= 100) then
+			self:EmitSound(HealSound)
 
-		if(ent == self:GetOwner()) then
-			self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
-			self:SetNextSecondaryFire(CurTime() + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
-			
-			if SERVER then
+			if(ent == self:GetOwner()) then
+				self:SendWeaponAnim(ACT_VM_SECONDARYATTACK)
+				self:SetNextSecondaryFire(CurTime() + 0.1 + self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)))
+
 				timer.Simple(self:SequenceDuration(self:SelectWeightedSequence(ACT_VM_SECONDARYATTACK)),function() 
-					self:TakeAmmo()
-					self:CreateZombie(ent)
+					if(IsValid(self)) then
+						self:TakeAmmo()
+					end
+
+					if SERVER then
+						self:CreateZombie(ent)
+					end
+				end)
+			else
+				self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+				self:SetNextPrimaryFire(CurTime() + 0.1 + self:SequenceDuration())
+
+
+				timer.Simple(self:SequenceDuration()+0.1,function()
+					if(IsValid(self)) then
+						self:TakeAmmo()
+
+						if SERVER then
+							self:CreateZombie(ent)
+						end
+					end
+				end)
+
+				timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
+					if(IsValid(self)) then 
+						self:SendWeaponAnim(ACT_VM_IDLE)
+					end 
 				end)
 			end
 		else
-			self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-			self:SetNextPrimaryFire(CurTime() + self:SequenceDuration())
-
-			if SERVER then
-				timer.Simple(self:SequenceDuration()+0.1,function() 
-					self:TakeAmmo()
-					self:CreateZombie(ent)
-				end)
-			end
-
-			timer.Create("weapon_idle" .. self:EntIndex(),self:SequenceDuration(),1,function()
-				if(IsValid(self)) then 
-					self:SendWeaponAnim(ACT_VM_IDLE)
-				end 
-			end)
+			self:EmitSound(DenySound)
 		end
 	else
 		self:EmitSound(DenySound)
@@ -121,16 +140,18 @@ function SWEP:SecondaryAttack()
 end
 
 function SWEP:OnRemove()
-	timer.Stop( "weapon_idle" .. self:EntIndex() )
+	timer.Remove("weapon_idle" .. self:EntIndex())
+	timer.Remove("InjectorRecharge"..self:EntIndex())
 end
 
 function SWEP:Holster()
-	timer.Stop( "weapon_idle" .. self:EntIndex() )
+	timer.Remove("weapon_idle" .. self:EntIndex())
 	return true
 end
 
 if CLIENT then
-	function SWEP:DrawHUD() -- Display uses
-		draw.WordBox(10, ScrW() - 200, ScrH() - 140, "Uses Left: " .. self:GetNWInt("Uses"), "Default", Color(0, 0, 0, 80), Color(255, 220, 0, 220))
+	function SWEP:DrawHUD() -- Display Charge
+		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, 200, 40, Color(200,125,255,100))
+		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, math.Clamp(self:GetNWInt("InjectorCharge")*2,0,200), 40, Color(200,125,255,200))
 	end
 end
