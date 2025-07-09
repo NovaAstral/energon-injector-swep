@@ -151,7 +151,7 @@ end
 
 if CLIENT then
 	function SWEP:DrawHUD() -- Display Charge
-		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, 200, 40, Color(200,125,255,100))
-		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, math.Clamp(self:GetNWInt("InjectorCharge")*2,0,200), 40, Color(200,125,255,200))
+		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, 200, 40, Color(180,90,255,100))
+		draw.RoundedBox(4,ScrW() - 300, ScrH() - 200, math.Clamp(self:GetNWInt("InjectorCharge")*2,0,200), 40, Color(180,90,255,200))
 	end
 end
